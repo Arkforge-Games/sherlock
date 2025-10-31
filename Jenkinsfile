@@ -28,7 +28,7 @@ pipeline {
                     echo "Docker version:"
                     docker --version
                     echo "Docker Compose version:"
-                    docker-compose --version
+                    docker compose version
                     echo "Python version:"
                     python3 --version
                 '''
@@ -64,7 +64,7 @@ pipeline {
             steps {
                 echo 'Building Docker images...'
                 sh '''
-                    docker-compose -f ${DOCKER_COMPOSE_FILE} build sherlock_web
+                    docker compose -f ${DOCKER_COMPOSE_FILE} build sherlock_web
                 '''
             }
         }
@@ -73,7 +73,7 @@ pipeline {
             steps {
                 echo 'Stopping old containers...'
                 sh '''
-                    docker-compose -f ${DOCKER_COMPOSE_FILE} down || true
+                    docker compose -f ${DOCKER_COMPOSE_FILE} down || true
                 '''
             }
         }
@@ -83,14 +83,14 @@ pipeline {
                 echo 'Deploying application...'
                 sh '''
                     # Start all services
-                    docker-compose -f ${DOCKER_COMPOSE_FILE} up -d
+                    docker compose -f ${DOCKER_COMPOSE_FILE} up -d
 
                     # Wait for services to be healthy
                     echo "Waiting for services to start..."
                     sleep 10
 
                     # Check container status
-                    docker-compose -f ${DOCKER_COMPOSE_FILE} ps
+                    docker compose -f ${DOCKER_COMPOSE_FILE} ps
                 '''
             }
         }
@@ -147,10 +147,10 @@ pipeline {
             echo 'Pipeline failed! Check the logs above for details.'
             sh '''
                 echo "Container status:"
-                docker-compose -f ${DOCKER_COMPOSE_FILE} ps || true
+                docker compose -f ${DOCKER_COMPOSE_FILE} ps || true
 
                 echo "Recent logs:"
-                docker-compose -f ${DOCKER_COMPOSE_FILE} logs --tail 50 || true
+                docker compose -f ${DOCKER_COMPOSE_FILE} logs --tail 50 || true
             '''
         }
 
