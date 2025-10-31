@@ -30,6 +30,9 @@ def search():
     # Build sherlock command
     cmd = ['sherlock'] + usernames
 
+    # Add verbose flag to see each site being checked
+    cmd.append('--verbose')
+
     if options.get('timeout'):
         cmd.extend(['--timeout', str(options['timeout'])])
 
@@ -128,7 +131,9 @@ def parse_results(output):
     """Parse sherlock output to extract found accounts"""
     results = {
         'found': [],
-        'not_found': []
+        'not_found': [],
+        'checking': [],
+        'total_checked': 0
     }
 
     lines = output.split('\n')
@@ -141,10 +146,17 @@ def parse_results(output):
                     'site': parts[0].strip(),
                     'url': parts[1].strip()
                 })
+                results['total_checked'] += 1
         elif line.startswith('[-]'):
             # Not found
             site = line[4:].strip()
             results['not_found'].append(site)
+            results['total_checked'] += 1
+        elif line.startswith('[*]'):
+            # Currently checking (verbose mode)
+            site = line[4:].strip()
+            if site:
+                results['checking'].append(site)
 
     return results
 

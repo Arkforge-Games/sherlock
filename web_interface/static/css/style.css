@@ -381,3 +381,45 @@ header h1 {
         min-width: 120px;
     }
 }
+
+.summary-card.checked {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.checking-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.checking-section h4 {
+    margin: 0 0 10px 0;
+    color: #667eea;
+    font-size: 1.1rem;
+}
+
+.checking-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.checking-item {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #333;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
