@@ -24,6 +24,9 @@ RUN pip install --no-cache-dir flask psycopg2-binary redis
 # Copy application code
 COPY . .
 
+# Install sherlock package (current project)
+RUN pip install --no-cache-dir -e .
+
 # Create results directory
 RUN mkdir -p /app/web_interface/results
 
