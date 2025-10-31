@@ -45,3 +45,13 @@ tests/.excluded_sites
 
 # Vim swap files
 *.swp
+
+
+.myDocs
+
+# Docker
+.env
+docker-compose.override.yml
+
+# Search Results
+web_interface/results/

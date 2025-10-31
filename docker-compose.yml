@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  sherlock_postgres:
+    image: postgres:15-alpine
+    container_name: sherlock_postgres
+    environment:
+      POSTGRES_USER: tony
+      POSTGRES_PASSWORD: hrpassword123
+      POSTGRES_DB: sherlock_db
+    ports:
+      - "5433:5432"  # Using 5433 to avoid conflict with eboss_postgres on 5432
+    volumes:
+      - sherlock_postgres_data:/var/lib/postgresql/data
+    networks:
+      - sherlock_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tony -d sherlock_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sherlock_redis:
+    image: redis:7-alpine
+    container_name: sherlock_redis
+    command: redis-server --requirepass hrpassword123
+    ports:
+      - "6380:6379"  # Using 6380 to avoid conflict with eboss_redis on 6379
+    volumes:
+      - sherlock_redis_data:/data
+    networks:
+      - sherlock_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "hrpassword123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sherlock_web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: sherlock_web
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://tony:hrpassword123@sherlock_postgres:5432/sherlock_db
+      - REDIS_URL=redis://:hrpassword123@sherlock_redis:6379
+      - PORT=5000
+    ports:
+      - "5050:5000"  # External port 5050 to avoid conflict
+    volumes:
+      - ./web_interface:/app/web_interface
+      - sherlock_results:/app/web_interface/results
+    depends_on:
+      sherlock_postgres:
+        condition: service_healthy
+      sherlock_redis:
+        condition: service_healthy
+    networks:
+      - sherlock_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  sherlock_postgres_data:
+    driver: local
+  sherlock_redis_data:
+    driver: local
+  sherlock_results:
+    driver: local
+
+networks:
+  sherlock_network:
+    driver: bridge
+    name: sherlock_network
