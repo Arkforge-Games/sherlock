@@ -68,12 +68,37 @@ services:
       timeout: 10s
       retries: 3
 
+  sherlock_jenkins:
+    image: jenkins/jenkins:lts
+    container_name: sherlock_jenkins
+    user: root
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins
+    ports:
+      - "8081:8080"  # Using 8081 to avoid conflict with eboss_jenkins on 8080
+      - "50001:50000"  # Agent port (using 50001 to avoid conflict)
+    volumes:
+      - sherlock_jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+    networks:
+      - sherlock_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
 volumes:
   sherlock_postgres_data:
     driver: local
   sherlock_redis_data:
     driver: local
   sherlock_results:
+    driver: local
+  sherlock_jenkins_data:
     driver: local
 
 networks:
