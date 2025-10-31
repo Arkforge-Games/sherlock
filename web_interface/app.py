@@ -17,6 +17,19 @@ active_searches = {}
 def index():
     return render_template('index.html')
 
+@app.route('/name_results/<search_id>')
+def name_results(search_id):
+    """Display name search results page"""
+    if search_id not in active_searches:
+        return "Search not found", 404
+
+    search_data = active_searches[search_id]
+    if search_data.get('type') != 'name_search':
+        return "Invalid search type", 400
+
+    name = search_data.get('results', {}).get('name', 'Unknown') if search_data.get('status') == 'completed' else 'Loading...'
+    return render_template('name_search_results.html', search_id=search_id, name=name)
+
 def generate_username_variations(full_name):
     """Generate common username variations from a full name"""
     # Clean and split the name

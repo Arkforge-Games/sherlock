@@ -212,7 +212,39 @@
                 }
             };
 
-            // Get input based on mode
+            // Handle different search modes
+            if (currentMode === 'fullname') {
+                // Full name OSINT search - redirect to name search results
+                const osintname = document.getElementById('osintname').value.trim();
+                if (!osintname) {
+                    alert('Please enter a full name');
+                    return;
+                }
+
+                document.getElementById('statusText').textContent = 'Generating OSINT links...';
+                document.getElementById('status').classList.remove('hidden');
+
+                try {
+                    const response = await fetch('/name_search', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name: osintname})
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        // Redirect to results page
+                        window.location.href = `/name_results/${data.search_id}`;
+                    } else {
+                        document.getElementById('statusText').textContent = `Error: ${data.error}`;
+                    }
+                } catch (error) {
+                    document.getElementById('statusText').textContent = `Error: ${error.message}`;
+                }
+                return;
+            }
+
+            // Get input based on mode (username or name generator)
             if (currentMode === 'username') {
                 const usernames = document.getElementById('usernames').value.trim();
                 if (!usernames) {
@@ -220,7 +252,7 @@
                     return;
                 }
                 searchData.usernames = usernames;
-            } else {
+            } else if (currentMode === 'name') {
                 const fullname = document.getElementById('fullname').value.trim();
                 if (!fullname) {
                     alert('Please enter a full name');
