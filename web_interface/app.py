@@ -15,11 +15,66 @@ active_searches = {}
 def index():
     return render_template('index.html')
 
+def generate_username_variations(full_name):
+    """Generate common username variations from a full name"""
+    # Clean and split the name
+    name_parts = full_name.lower().strip().split()
+
+    if len(name_parts) == 0:
+        return []
+
+    variations = set()
+
+    if len(name_parts) == 1:
+        # Single name (could be username already)
+        variations.add(name_parts[0])
+    elif len(name_parts) == 2:
+        first, last = name_parts[0], name_parts[1]
+        # Common patterns for first + last name
+        variations.add(f"{first}{last}")           # johnsmith
+        variations.add(f"{first}_{last}")          # john_smith
+        variations.add(f"{first}.{last}")          # john.smith
+        variations.add(f"{first}-{last}")          # john-smith
+        variations.add(f"{first[0]}{last}")        # jsmith
+        variations.add(f"{first}{last[0]}")        # johns
+        variations.add(f"{last}{first}")           # smithjohn
+        variations.add(f"{last}_{first}")          # smith_john
+        variations.add(f"{last}.{first}")          # smith.john
+        variations.add(f"{first}{last}123")        # johnsmith123
+        variations.add(f"{first}_{last}123")       # john_smith123
+    elif len(name_parts) >= 3:
+        # Handle middle names
+        first, middle, last = name_parts[0], name_parts[1], name_parts[-1]
+        variations.add(f"{first}{last}")           # johnsmith
+        variations.add(f"{first}_{last}")          # john_smith
+        variations.add(f"{first}.{last}")          # john.smith
+        variations.add(f"{first}{middle[0]}{last}") # johnmsmith
+        variations.add(f"{first[0]}{middle[0]}{last}") # jmsmith
+        variations.add(f"{first}_{middle}_{last}") # john_michael_smith
+
+    return list(variations)
+
 @app.route('/search', methods=['POST'])
 def search():
     data = request.json
-    usernames = data.get('usernames', '').strip().split()
+    search_mode = data.get('mode', 'username')  # 'username' or 'name'
     options = data.get('options', {})
+
+    usernames = []
+
+    if search_mode == 'name':
+        # Generate username variations from full name
+        full_name = data.get('fullname', '').strip()
+        if not full_name:
+            return jsonify({'error': 'Please provide a full name'}), 400
+        usernames = generate_username_variations(full_name)
+        if not usernames:
+            return jsonify({'error': 'Could not generate usernames from name'}), 400
+    else:
+        # Direct username search
+        usernames = data.get('usernames', '').strip().split()
+        if not usernames:
+            return jsonify({'error': 'Please provide at least one username'}), 400
 
     if not usernames:
         return jsonify({'error': 'Please provide at least one username'}), 400

@@ -14,10 +14,31 @@
         </header>
 
         <div class="search-section">
-            <div class="form-group">
-                <label for="usernames">Username(s) to Search:</label>
-                <input type="text" id="usernames" placeholder="Enter username(s) separated by spaces" autocomplete="off">
-                <small>Example: john_doe jane_smith</small>
+            <div class="search-mode-toggle">
+                <button class="mode-btn active" data-mode="username">Search by Username</button>
+                <button class="mode-btn" data-mode="name">Search by Name</button>
+            </div>
+
+            <div id="username-search" class="search-mode-section">
+                <div class="form-group">
+                    <label for="usernames">Username(s) to Search:</label>
+                    <input type="text" id="usernames" placeholder="Enter username(s) separated by spaces" autocomplete="off">
+                    <small>Example: john_doe jane_smith</small>
+                </div>
+            </div>
+
+            <div id="name-search" class="search-mode-section hidden">
+                <div class="form-group">
+                    <label for="fullname">Full Name to Search:</label>
+                    <input type="text" id="fullname" placeholder="Enter full name (e.g., John Smith)" autocomplete="off">
+                    <small>We'll generate common username variations automatically</small>
+                </div>
+                <div class="info-box">
+                    <strong>How it works:</strong> We'll generate variations like:<br>
+                    • johnsmith, john_smith, john.smith<br>
+                    • jsmith, smithjohn<br>
+                    • And more patterns based on the name
+                </div>
             </div>
 
             <div class="options-section">
@@ -122,6 +143,7 @@
     <script>
         let currentSearchId = null;
         let statusCheckInterval = null;
+        let currentMode = 'username';
 
         document.getElementById('searchBtn').addEventListener('click', startSearch);
 
@@ -132,35 +154,75 @@
             });
         });
 
-        async function startSearch() {
-            const usernames = document.getElementById('usernames').value.trim();
+        // Mode toggle
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const mode = this.dataset.mode;
+                switchMode(mode);
+            });
+        });
 
-            if (!usernames) {
-                alert('Please enter at least one username');
-                return;
+        function switchMode(mode) {
+            currentMode = mode;
+
+            // Update buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+            // Show/hide appropriate search section
+            if (mode === 'username') {
+                document.getElementById('username-search').classList.remove('hidden');
+                document.getElementById('name-search').classList.add('hidden');
+            } else {
+                document.getElementById('username-search').classList.add('hidden');
+                document.getElementById('name-search').classList.remove('hidden');
             }
+        }
 
-            const options = {
-                timeout: parseInt(document.getElementById('timeout').value),
-                csv: document.getElementById('csv').checked,
-                xlsx: document.getElementById('xlsx').checked,
-                nsfw: document.getElementById('nsfw').checked,
+        async function startSearch() {
+            let searchData = {
+                mode: currentMode,
+                options: {
+                    timeout: parseInt(document.getElementById('timeout').value),
+                    csv: document.getElementById('csv').checked,
+                    xlsx: document.getElementById('xlsx').checked,
+                    nsfw: document.getElementById('nsfw').checked,
+                }
             };
+
+            // Get input based on mode
+            if (currentMode === 'username') {
+                const usernames = document.getElementById('usernames').value.trim();
+                if (!usernames) {
+                    alert('Please enter at least one username');
+                    return;
+                }
+                searchData.usernames = usernames;
+            } else {
+                const fullname = document.getElementById('fullname').value.trim();
+                if (!fullname) {
+                    alert('Please enter a full name');
+                    return;
+                }
+                searchData.fullname = fullname;
+            }
 
             const sitesInput = document.getElementById('sites').value.trim();
             if (sitesInput) {
-                options.sites = sitesInput.split(',').map(s => s.trim());
+                searchData.options.sites = sitesInput.split(',').map(s => s.trim());
             }
 
             const proxyInput = document.getElementById('proxy').value.trim();
             if (proxyInput) {
-                options.proxy = proxyInput;
+                searchData.options.proxy = proxyInput;
             }
 
             // Show status section
             document.getElementById('status').classList.remove('hidden');
             document.getElementById('results').classList.add('hidden');
-            document.getElementById('statusText').textContent = 'Starting search...';
+            document.getElementById('statusText').textContent = currentMode === 'name' ? 'Generating username variations and starting search...' : 'Starting search...';
 
             try {
                 const response = await fetch('/search', {
@@ -168,10 +230,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        usernames: usernames,
-                        options: options
-                    })
+                    body: JSON.stringify(searchData)
                 });
 
                 const data = await response.json();
