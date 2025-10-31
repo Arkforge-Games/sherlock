@@ -27,10 +27,8 @@ pipeline {
                 sh '''
                     echo "Docker version:"
                     docker --version
-                    echo "Docker Compose version:"
-                    docker compose version
                     echo "Python version:"
-                    python3 --version
+                    python3 --version || echo "Python not available in Jenkins"
                 '''
             }
         }
@@ -64,7 +62,8 @@ pipeline {
             steps {
                 echo 'Building Docker images...'
                 sh '''
-                    docker compose -f ${DOCKER_COMPOSE_FILE} build sherlock_web
+                    cd /var/jenkins_home/workspace/Sherlock-Pipeline
+                    docker build -t sherlock_web:latest -f Dockerfile.web .
                 '''
             }
         }
@@ -73,7 +72,8 @@ pipeline {
             steps {
                 echo 'Stopping old containers...'
                 sh '''
-                    docker compose -f ${DOCKER_COMPOSE_FILE} down || true
+                    docker stop sherlock_web sherlock_postgres sherlock_redis || true
+                    docker rm sherlock_web sherlock_postgres sherlock_redis || true
                 '''
             }
         }
@@ -82,15 +82,46 @@ pipeline {
             steps {
                 echo 'Deploying application...'
                 sh '''
-                    # Start all services
-                    docker compose -f ${DOCKER_COMPOSE_FILE} up -d
+                    # Create network if it doesn't exist
+                    docker network create sherlock_network || true
 
-                    # Wait for services to be healthy
+                    # Start PostgreSQL
+                    docker run -d --name sherlock_postgres \
+                      --network sherlock_network \
+                      -e POSTGRES_USER=tony \
+                      -e POSTGRES_PASSWORD=hrpassword123 \
+                      -e POSTGRES_DB=sherlock_db \
+                      -p 5433:5432 \
+                      -v sherlock_postgres_data:/var/lib/postgresql/data \
+                      --restart unless-stopped \
+                      postgres:15-alpine || true
+
+                    # Start Redis
+                    docker run -d --name sherlock_redis \
+                      --network sherlock_network \
+                      -p 6380:6379 \
+                      -v sherlock_redis_data:/data \
+                      --restart unless-stopped \
+                      redis:7-alpine redis-server --requirepass hrpassword123 || true
+
+                    # Wait for databases to be ready
                     echo "Waiting for services to start..."
                     sleep 10
 
+                    # Start Web Interface
+                    docker run -d --name sherlock_web \
+                      --network sherlock_network \
+                      -e FLASK_APP=app.py \
+                      -e FLASK_ENV=production \
+                      -e DATABASE_URL=postgresql://tony:hrpassword123@sherlock_postgres:5432/sherlock_db \
+                      -e REDIS_URL=redis://:hrpassword123@sherlock_redis:6379 \
+                      -p 5050:5000 \
+                      -v sherlock_results:/app/web_interface/results \
+                      --restart unless-stopped \
+                      sherlock_web:latest || true
+
                     # Check container status
-                    docker compose -f ${DOCKER_COMPOSE_FILE} ps
+                    docker ps | grep sherlock
                 '''
             }
         }
@@ -147,10 +178,10 @@ pipeline {
             echo 'Pipeline failed! Check the logs above for details.'
             sh '''
                 echo "Container status:"
-                docker compose -f ${DOCKER_COMPOSE_FILE} ps || true
+                docker ps -a | grep sherlock || true
 
-                echo "Recent logs:"
-                docker compose -f ${DOCKER_COMPOSE_FILE} logs --tail 50 || true
+                echo "Recent logs from sherlock_web:"
+                docker logs --tail 50 sherlock_web || true
             '''
         }
 
