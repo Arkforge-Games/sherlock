@@ -100,7 +100,7 @@ pipeline {
                       -e FLASK_ENV=production \
                       -e DATABASE_URL=postgresql://tony:hrpassword123@sherlock_postgres:5432/sherlock_db \
                       -e REDIS_URL=redis://:hrpassword123@sherlock_redis:6379 \
-                      -p 5050:5000 \
+                      -p 5051:5000 \
                       -v sherlock_results:/app/web_interface/results \
                       --restart unless-stopped \
                       sherlock_web:latest || true
@@ -120,7 +120,7 @@ pipeline {
 
                     # Check if web interface is responding
                     echo "Checking web interface..."
-                    curl -f http://localhost:5050 || echo "Web interface check failed"
+                    curl -f http://localhost:5051 || echo "Web interface check failed"
 
                     # Check if PostgreSQL is ready
                     echo "Checking PostgreSQL..."
@@ -155,8 +155,8 @@ pipeline {
         success {
             echo 'Pipeline completed successfully!'
             echo 'Sherlock Web Interface is now available at:'
-            echo 'Local: http://localhost:5050'
-            echo 'Network: http://192.168.1.22:5050'
+            echo 'Local: http://localhost:5051'
+            echo 'Network: http://192.168.1.22:5051'
         }
 
         failure {
