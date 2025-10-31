@@ -15,8 +15,9 @@
 
         <div class="search-section">
             <div class="search-mode-toggle">
-                <button class="mode-btn active" data-mode="username">Search by Username</button>
-                <button class="mode-btn" data-mode="name">Search by Name</button>
+                <button class="mode-btn active" data-mode="username">Username Search</button>
+                <button class="mode-btn" data-mode="name">Username Generator</button>
+                <button class="mode-btn" data-mode="fullname">Full Name OSINT</button>
             </div>
 
             <div id="username-search" class="search-mode-section">
@@ -38,6 +39,21 @@
                     • johnsmith, john_smith, john.smith<br>
                     • jsmith, smithjohn<br>
                     • And more patterns based on the name
+                </div>
+            </div>
+
+            <div id="fullname-search" class="search-mode-section hidden">
+                <div class="form-group">
+                    <label for="osintname">Full Name for OSINT Search:</label>
+                    <input type="text" id="osintname" placeholder="Enter full name (e.g., John Smith)" autocomplete="off">
+                    <small>Get Google dorks, social media links, and people search links</small>
+                </div>
+                <div class="info-box">
+                    <strong>This will generate:</strong><br>
+                    • 🔍 Google Dorks (advanced search queries)<br>
+                    • 👤 Direct social media search links (Facebook, LinkedIn, Twitter, Instagram, etc.)<br>
+                    • 📋 People search engine links (TruePeopleSearch, WhitePages, etc.)<br>
+                    <em>One-click access to all search tools in new tabs</em>
                 </div>
             </div>
 
@@ -172,12 +188,16 @@
             document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
 
             // Show/hide appropriate search section
+            document.getElementById('username-search').classList.add('hidden');
+            document.getElementById('name-search').classList.add('hidden');
+            document.getElementById('fullname-search').classList.add('hidden');
+
             if (mode === 'username') {
                 document.getElementById('username-search').classList.remove('hidden');
-                document.getElementById('name-search').classList.add('hidden');
-            } else {
-                document.getElementById('username-search').classList.add('hidden');
+            } else if (mode === 'name') {
                 document.getElementById('name-search').classList.remove('hidden');
+            } else if (mode === 'fullname') {
+                document.getElementById('fullname-search').classList.remove('hidden');
             }
         }
 
