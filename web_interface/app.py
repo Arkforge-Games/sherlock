@@ -178,5 +178,5 @@ def list_files(search_id):
 if __name__ == '__main__':
     os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
     print("Starting Sherlock Web Interface...")
-    print("Open your browser and go to: http://127.0.0.1:5000")
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    print("Open your browser and go to: http://0.0.0.0:5000")
+    app.run(debug=True, host='0.0.0.0', port=5000)
