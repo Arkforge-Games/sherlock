@@ -57,27 +57,42 @@ def search():
     # Run search in background
     def run_search():
         try:
-            result = subprocess.run(
+            # Use Popen for real-time output streaming
+            process = subprocess.Popen(
                 cmd,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=300
+                bufsize=1
             )
+
+            output_lines = []
+
+            # Read output in real-time
+            for line in process.stdout:
+                output_lines.append(line)
+                # Update live results
+                active_searches[search_id] = {
+                    'status': 'running',
+                    'output': ''.join(output_lines),
+                    'folder': output_folder
+                }
+
+            # Wait for process to complete
+            process.wait()
+            stderr_output = process.stderr.read()
+
             active_searches[search_id] = {
                 'status': 'completed',
-                'output': result.stdout,
-                'error': result.stderr,
+                'output': ''.join(output_lines),
+                'error': stderr_output,
                 'folder': output_folder
-            }
-        except subprocess.TimeoutExpired:
-            active_searches[search_id] = {
-                'status': 'timeout',
-                'error': 'Search timed out after 5 minutes'
             }
         except Exception as e:
             active_searches[search_id] = {
                 'status': 'error',
-                'error': str(e)
+                'error': str(e),
+                'folder': output_folder
             }
 
     active_searches[search_id] = {'status': 'running'}
@@ -97,14 +112,14 @@ def get_status(search_id):
 
     search_info = active_searches[search_id]
 
-    if search_info['status'] == 'completed':
-        # Parse results
+    # Parse results even if still running to show live updates
+    if 'output' in search_info and search_info['output']:
         results = parse_results(search_info['output'])
         return jsonify({
-            'status': 'completed',
+            'status': search_info['status'],
             'results': results,
             'raw_output': search_info['output'],
-            'folder': search_info['folder']
+            'folder': search_info.get('folder', '')
         })
 
     return jsonify(search_info)

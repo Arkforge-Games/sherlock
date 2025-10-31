@@ -191,11 +191,18 @@
                 if (data.status === 'completed') {
                     clearInterval(statusCheckInterval);
                     document.getElementById('status').classList.add('hidden');
-                    displayResults(data);
+                    displayResults(data, true);
                     loadExportFiles();
-                } else if (data.status === 'error' || data.status === 'timeout') {
+                } else if (data.status === 'error') {
                     clearInterval(statusCheckInterval);
                     document.getElementById('statusText').textContent = `Error: ${data.error}`;
+                } else if (data.status === 'running' && data.results) {
+                    // Show live results while search is running
+                    document.getElementById('status').classList.remove('hidden');
+                    document.getElementById('results').classList.remove('hidden');
+                    displayResults(data, false);
+                    const foundCount = data.results.found.length;
+                    document.getElementById('statusText').textContent = `Search in progress... (${foundCount} found so far)`;
                 } else {
                     document.getElementById('statusText').textContent = 'Search in progress...';
                 }
@@ -204,14 +211,16 @@
             }
         }
 
-        function displayResults(data) {
+        function displayResults(data, isComplete) {
             document.getElementById('results').classList.remove('hidden');
 
             const results = data.results;
 
             // Update counts
-            document.getElementById('foundCount').textContent = results.found.length;
-            document.getElementById('notFoundCount').textContent = results.not_found.length;
+            const foundText = isComplete ? results.found.length : `${results.found.length}+`;
+            const notFoundText = isComplete ? results.not_found.length : `${results.not_found.length}+`;
+            document.getElementById('foundCount').textContent = foundText;
+            document.getElementById('notFoundCount').textContent = notFoundText;
 
             // Display found accounts
             const foundDiv = document.getElementById('foundResults');
