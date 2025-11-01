@@ -188,12 +188,20 @@ def get_status(search_id):
     # Parse results even if still running to show live updates
     if 'output' in search_info and search_info['output']:
         results = parse_results(search_info['output'])
-        return jsonify({
+        response = {
             'status': search_info['status'],
             'results': results,
             'raw_output': search_info['output'],
             'folder': search_info.get('folder', '')
-        })
+        }
+
+        # Add name search specific fields
+        if search_info.get('type') == 'name_search':
+            response['name'] = search_info.get('name', '')
+            response['usernames_searched'] = search_info.get('usernames_searched', [])
+            response['type'] = 'name_search'
+
+        return jsonify(response)
 
     return jsonify(search_info)
 
@@ -260,217 +268,89 @@ def list_files(search_id):
 
 @app.route('/name_search', methods=['POST'])
 def name_search():
-    """Search for a person's name across multiple platforms using OSINT techniques"""
+    """Search for a person by name - generates username variations and searches social platforms"""
     data = request.json
     full_name = data.get('name', '').strip()
-    
+
     if not full_name:
         return jsonify({'error': 'Please provide a name'}), 400
-    
+
+    # Generate username variations from the name
+    usernames = generate_username_variations(full_name)
+    if not usernames:
+        return jsonify({'error': 'Could not generate usernames from name'}), 400
+
     # Generate unique search ID
     search_id = f"namesearch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
-    # Run name search in background
+
+    # Build sherlock command with all username variations
+    cmd = ['sherlock'] + usernames
+    cmd.append('--verbose')
+
+    # Output folder for results
+    output_folder = os.path.join(app.config['RESULTS_FOLDER'], search_id)
+    os.makedirs(output_folder, exist_ok=True)
+    cmd.extend(['--folderoutput', output_folder])
+
+    # Run search in background
     def run_name_search():
         try:
-            results = {
-                'google_dorks': generate_google_dorks(full_name),
-                'social_media_links': generate_social_media_search_links(full_name),
-                'people_search_links': generate_people_search_links(full_name),
-                'name': full_name
-            }
-            
+            # Use Popen for real-time output streaming
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+
+            output_lines = []
+
+            # Read output in real-time
+            for line in process.stdout:
+                output_lines.append(line)
+                # Update live results
+                active_searches[search_id] = {
+                    'status': 'running',
+                    'type': 'name_search',
+                    'name': full_name,
+                    'usernames_searched': usernames,
+                    'output': ''.join(output_lines),
+                    'folder': output_folder
+                }
+
+            # Wait for process to complete
+            process.wait()
+            stderr_output = process.stderr.read()
+
             active_searches[search_id] = {
                 'status': 'completed',
                 'type': 'name_search',
-                'results': results
+                'name': full_name,
+                'usernames_searched': usernames,
+                'output': ''.join(output_lines),
+                'error': stderr_output,
+                'folder': output_folder
             }
         except Exception as e:
             active_searches[search_id] = {
                 'status': 'error',
+                'type': 'name_search',
                 'error': str(e),
-                'type': 'name_search'
+                'folder': output_folder
             }
-    
-    active_searches[search_id] = {'status': 'running', 'type': 'name_search'}
+
+    active_searches[search_id] = {'status': 'running', 'type': 'name_search', 'name': full_name}
     thread = threading.Thread(target=run_name_search)
     thread.start()
-    
+
     return jsonify({
         'search_id': search_id,
         'message': 'Name search started',
-        'name': full_name
+        'name': full_name,
+        'usernames': usernames
     })
 
-def generate_google_dorks(name):
-    """Generate Google dork queries for finding a person"""
-    encoded_name = quote(f'"{name}"')
-    
-    dorks = [
-        {
-            'query': f'"{name}"',
-            'url': f'https://www.google.com/search?q={encoded_name}',
-            'description': 'General search'
-        },
-        {
-            'query': f'"{name}" site:facebook.com',
-            'url': f'https://www.google.com/search?q={encoded_name}+site:facebook.com',
-            'description': 'Facebook profiles'
-        },
-        {
-            'query': f'"{name}" site:linkedin.com',
-            'url': f'https://www.google.com/search?q={encoded_name}+site:linkedin.com',
-            'description': 'LinkedIn profiles'
-        },
-        {
-            'query': f'"{name}" site:twitter.com OR site:x.com',
-            'url': f'https://www.google.com/search?q={encoded_name}+site:twitter.com+OR+site:x.com',
-            'description': 'Twitter/X profiles'
-        },
-        {
-            'query': f'"{name}" site:instagram.com',
-            'url': f'https://www.google.com/search?q={encoded_name}+site:instagram.com',
-            'description': 'Instagram profiles'
-        },
-        {
-            'query': f'"{name}" site:github.com',
-            'url': f'https://www.google.com/search?q={encoded_name}+site:github.com',
-            'description': 'GitHub profiles'
-        },
-        {
-            'query': f'"{name}" inurl:profile',
-            'url': f'https://www.google.com/search?q={encoded_name}+inurl:profile',
-            'description': 'Any site with /profile/ in URL'
-        },
-        {
-            'query': f'"{name}" inurl:resume OR inurl:cv',
-            'url': f'https://www.google.com/search?q={encoded_name}+inurl:resume+OR+inurl:cv',
-            'description': 'Resumes and CVs'
-        },
-        {
-            'query': f'"{name}" "@gmail.com" OR "@yahoo.com" OR "@hotmail.com"',
-            'url': f'https://www.google.com/search?q={encoded_name}+"@gmail.com"+OR+"@yahoo.com"+OR+"@hotmail.com"',
-            'description': 'Email addresses'
-        },
-        {
-            'query': f'"{name}" phone OR mobile OR contact',
-            'url': f'https://www.google.com/search?q={encoded_name}+phone+OR+mobile+OR+contact',
-            'description': 'Phone numbers'
-        }
-    ]
-    
-    return dorks
-
-def generate_social_media_search_links(name):
-    """Generate direct search links for social media platforms"""
-    encoded_name = quote(name)
-    
-    links = [
-        {
-            'platform': 'Facebook',
-            'url': f'https://www.facebook.com/search/people/?q={encoded_name}',
-            'icon': '👤'
-        },
-        {
-            'platform': 'LinkedIn',
-            'url': f'https://www.linkedin.com/search/results/people/?keywords={encoded_name}',
-            'icon': '💼'
-        },
-        {
-            'platform': 'Twitter/X',
-            'url': f'https://twitter.com/search?q={encoded_name}&f=user',
-            'icon': '🐦'
-        },
-        {
-            'platform': 'Instagram',
-            'url': f'https://www.instagram.com/explore/search/keyword/?q={encoded_name}',
-            'icon': '📷'
-        },
-        {
-            'platform': 'TikTok',
-            'url': f'https://www.tiktok.com/search/user?q={encoded_name}',
-            'icon': '🎵'
-        },
-        {
-            'platform': 'YouTube',
-            'url': f'https://www.youtube.com/results?search_query={encoded_name}',
-            'icon': '▶️'
-        },
-        {
-            'platform': 'Pinterest',
-            'url': f'https://www.pinterest.com/search/people/?q={encoded_name}',
-            'icon': '📌'
-        },
-        {
-            'platform': 'Reddit',
-            'url': f'https://www.reddit.com/search/?q={encoded_name}&type=user',
-            'icon': '👽'
-        },
-        {
-            'platform': 'GitHub',
-            'url': f'https://github.com/search?q={encoded_name}&type=users',
-            'icon': '💻'
-        },
-        {
-            'platform': 'Medium',
-            'url': f'https://medium.com/search/people?q={encoded_name}',
-            'icon': '📝'
-        }
-    ]
-    
-    return links
-
-def generate_people_search_links(name):
-    """Generate links to free people search engines"""
-    encoded_name = quote(name)
-    name_parts = name.split()
-    first_name = quote(name_parts[0]) if name_parts else ''
-    last_name = quote(name_parts[-1]) if len(name_parts) > 1 else ''
-    
-    links = [
-        {
-            'service': 'TruePeopleSearch',
-            'url': f'https://www.truepeoplesearch.com/results?name={encoded_name}',
-            'description': 'Free people search with phone & address'
-        },
-        {
-            'service': 'FastPeopleSearch',
-            'url': f'https://www.fastpeoplesearch.com/name/{encoded_name}',
-            'description': 'Free public records search'
-        },
-        {
-            'service': 'WhitePages',
-            'url': f'https://www.whitepages.com/name/{encoded_name}',
-            'description': 'Phone & address lookup'
-        },
-        {
-            'service': 'AnyWho',
-            'url': f'https://www.anywho.com/people/{first_name}+{last_name}',
-            'description': 'Reverse phone lookup'
-        },
-        {
-            'service': 'That\'sThem',
-            'url': f'https://thatsthem.com/name/{encoded_name}',
-            'description': 'Free people search'
-        },
-        {
-            'service': 'Spokeo',
-            'url': f'https://www.spokeo.com/{encoded_name}',
-            'description': 'People search (limited free)'
-        },
-        {
-            'service': 'Pipl',
-            'url': f'https://pipl.com/search/?q={encoded_name}',
-            'description': 'Deep web people search'
-        },
-        {
-            'service': 'Social Searcher',
-            'url': f'https://www.social-searcher.com/search-users/?q={encoded_name}',
-            'description': 'Social media search'
-        }
-    ]
-    
-    return links
 
 if __name__ == '__main__':
     os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
