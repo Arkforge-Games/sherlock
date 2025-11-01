@@ -17,18 +17,6 @@ active_searches = {}
 def index():
     return render_template('index.html')
 
-@app.route('/name_results/<search_id>')
-def name_results(search_id):
-    """Display name search results page"""
-    if search_id not in active_searches:
-        return "Search not found", 404
-
-    search_data = active_searches[search_id]
-    if search_data.get('type') != 'name_search':
-        return "Invalid search type", 400
-
-    name = search_data.get('results', {}).get('name', 'Unknown') if search_data.get('status') == 'completed' else 'Loading...'
-    return render_template('name_search_results.html', search_id=search_id, name=name)
 
 def generate_username_variations(full_name):
     """Generate common username variations from a full name"""
@@ -195,12 +183,6 @@ def get_status(search_id):
             'folder': search_info.get('folder', '')
         }
 
-        # Add name search specific fields
-        if search_info.get('type') == 'name_search':
-            response['name'] = search_info.get('name', '')
-            response['usernames_searched'] = search_info.get('usernames_searched', [])
-            response['type'] = 'name_search'
-
         return jsonify(response)
 
     return jsonify(search_info)
@@ -266,90 +248,6 @@ def list_files(search_id):
     return jsonify({'files': files})
 
 
-@app.route('/name_search', methods=['POST'])
-def name_search():
-    """Search for a person by name - generates username variations and searches social platforms"""
-    data = request.json
-    full_name = data.get('name', '').strip()
-
-    if not full_name:
-        return jsonify({'error': 'Please provide a name'}), 400
-
-    # Generate username variations from the name
-    usernames = generate_username_variations(full_name)
-    if not usernames:
-        return jsonify({'error': 'Could not generate usernames from name'}), 400
-
-    # Generate unique search ID
-    search_id = f"namesearch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-    # Build sherlock command with all username variations
-    cmd = ['sherlock'] + usernames
-    cmd.append('--verbose')
-
-    # Output folder for results
-    output_folder = os.path.join(app.config['RESULTS_FOLDER'], search_id)
-    os.makedirs(output_folder, exist_ok=True)
-    cmd.extend(['--folderoutput', output_folder])
-
-    # Run search in background
-    def run_name_search():
-        try:
-            # Use Popen for real-time output streaming
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
-            )
-
-            output_lines = []
-
-            # Read output in real-time
-            for line in process.stdout:
-                output_lines.append(line)
-                # Update live results
-                active_searches[search_id] = {
-                    'status': 'running',
-                    'type': 'name_search',
-                    'name': full_name,
-                    'usernames_searched': usernames,
-                    'output': ''.join(output_lines),
-                    'folder': output_folder
-                }
-
-            # Wait for process to complete
-            process.wait()
-            stderr_output = process.stderr.read()
-
-            active_searches[search_id] = {
-                'status': 'completed',
-                'type': 'name_search',
-                'name': full_name,
-                'usernames_searched': usernames,
-                'output': ''.join(output_lines),
-                'error': stderr_output,
-                'folder': output_folder
-            }
-        except Exception as e:
-            active_searches[search_id] = {
-                'status': 'error',
-                'type': 'name_search',
-                'error': str(e),
-                'folder': output_folder
-            }
-
-    active_searches[search_id] = {'status': 'running', 'type': 'name_search', 'name': full_name}
-    thread = threading.Thread(target=run_name_search)
-    thread.start()
-
-    return jsonify({
-        'search_id': search_id,
-        'message': 'Name search started',
-        'name': full_name,
-        'usernames': usernames
-    })
 
 
 if __name__ == '__main__':

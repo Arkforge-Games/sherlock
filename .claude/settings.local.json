@@ -21,7 +21,13 @@
       "Bash(docker logs:*)",
       "Bash(./create-jenkins-job.sh:*)",
       "Bash(./create-jenkins-job-v2.sh:*)",
-      "Bash(java:*)"
+      "Bash(java:*)",
+      "Bash(docker ps:*)",
+      "WebSearch",
+      "Bash(social-analyzer:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git clone:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

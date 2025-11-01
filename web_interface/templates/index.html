@@ -17,7 +17,6 @@
             <div class="search-mode-toggle">
                 <button class="mode-btn active" data-mode="username">Username Search</button>
                 <button class="mode-btn" data-mode="name">Username Generator</button>
-                <button class="mode-btn" data-mode="fullname">Full Name OSINT</button>
             </div>
 
             <div id="username-search" class="search-mode-section">
@@ -42,20 +41,6 @@
                 </div>
             </div>
 
-            <div id="fullname-search" class="search-mode-section hidden">
-                <div class="form-group">
-                    <label for="osintname">Full Name for OSINT Search:</label>
-                    <input type="text" id="osintname" placeholder="Enter full name (e.g., John Smith)" autocomplete="off">
-                    <small>Get Google dorks, social media links, and people search links</small>
-                </div>
-                <div class="info-box">
-                    <strong>This will generate:</strong><br>
-                    • 🔍 Google Dorks (advanced search queries)<br>
-                    • 👤 Direct social media search links (Facebook, LinkedIn, Twitter, Instagram, etc.)<br>
-                    • 📋 People search engine links (TruePeopleSearch, WhitePages, etc.)<br>
-                    <em>One-click access to all search tools in new tabs</em>
-                </div>
-            </div>
 
             <div class="options-section">
                 <h3>Search Options</h3>
@@ -190,14 +175,11 @@
             // Show/hide appropriate search section
             document.getElementById('username-search').classList.add('hidden');
             document.getElementById('name-search').classList.add('hidden');
-            document.getElementById('fullname-search').classList.add('hidden');
 
             if (mode === 'username') {
                 document.getElementById('username-search').classList.remove('hidden');
             } else if (mode === 'name') {
                 document.getElementById('name-search').classList.remove('hidden');
-            } else if (mode === 'fullname') {
-                document.getElementById('fullname-search').classList.remove('hidden');
             }
         }
 
@@ -211,38 +193,6 @@
                     nsfw: document.getElementById('nsfw').checked,
                 }
             };
-
-            // Handle different search modes
-            if (currentMode === 'fullname') {
-                // Full name OSINT search - redirect to name search results
-                const osintname = document.getElementById('osintname').value.trim();
-                if (!osintname) {
-                    alert('Please enter a full name');
-                    return;
-                }
-
-                document.getElementById('statusText').textContent = 'Generating OSINT links...';
-                document.getElementById('status').classList.remove('hidden');
-
-                try {
-                    const response = await fetch('/name_search', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({name: osintname})
-                    });
-
-                    const data = await response.json();
-                    if (response.ok) {
-                        // Redirect to results page
-                        window.location.href = `/name_results/${data.search_id}`;
-                    } else {
-                        document.getElementById('statusText').textContent = `Error: ${data.error}`;
-                    }
-                } catch (error) {
-                    document.getElementById('statusText').textContent = `Error: ${error.message}`;
-                }
-                return;
-            }
 
             // Get input based on mode (username or name generator)
             if (currentMode === 'username') {
