@@ -257,11 +257,6 @@ def list_files(search_id):
     files = os.listdir(folder)
     return jsonify({'files': files})
 
-if __name__ == '__main__':
-    os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
-    print("Starting Sherlock Web Interface...")
-    print("Open your browser and go to: http://0.0.0.0:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
 
 @app.route('/name_search', methods=['POST'])
 def name_search():
@@ -476,3 +471,10 @@ def generate_people_search_links(name):
     ]
     
     return links
+
+if __name__ == '__main__':
+    os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
+    print("Starting Sherlock Web Interface...")
+    print("Open your browser and go to: http://0.0.0.0:5000")
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
